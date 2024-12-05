@@ -52,4 +52,31 @@ public class BookController {
 		
 		return bookRepository.findByUserId(userId);
 	}
+
+	@DeleteMapping("/delete")
+	public ResponseEntity<String> deleteBook(@RequestHeader("Authorization") String accessToken, @RequestBody Book book) {
+		Long userId = tokenService.extractUserId(accessToken);
+		if (userId == null) {
+			return new ResponseEntity<>("User ID not found.", HttpStatus.UNAUTHORIZED);
+		}
+		
+		log.info("Attempting to delete book with ID {} for userId: {}", book.getId(), userId);
+		
+		try {
+			Book existingBook = bookRepository.findById(book.getId())
+				.orElseThrow(() -> new RuntimeException("Book not found."));
+			
+			if (!existingBook.getUserId().equals(userId)) {
+				log.warn("Unauthorized deletion attempt for book ID {} by userId {}", book.getId(), userId);
+	            return new ResponseEntity<>("Unauthorized deletion attempt.", HttpStatus.FORBIDDEN);
+			}
+			
+			bookRepository.delete(existingBook);
+			
+			return new ResponseEntity<>("Book deleted successfully.", HttpStatus.OK);
+		} catch (Exception e) {
+			log.error("Error occurred while deleting book ID {}: {}", book.getId(), e.getMessage());
+			return new ResponseEntity<>("Internal server error occurred.", HttpStatus.INTERNAL_SERVER_ERROR);
+		}
+	}
 }
